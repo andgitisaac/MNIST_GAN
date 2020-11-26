@@ -7,7 +7,8 @@ def train_transform():
     ]
     return transforms.Compose(transform_list)
 
-def test_transform():
+def augmented_train_transform():
+    # TODO: Data augmentation
     transform_list = [
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))

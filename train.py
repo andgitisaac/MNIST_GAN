@@ -19,14 +19,14 @@ from fuels.MNIST import MNIST
 from networks.generator import Generator
 from networks.discriminator import Discriminator
 from utils.helper import weights_init
+from utils.transforms import train_transform, augmented_train_transform
 
 args = parse_train_args()
 print(args)
 
-GAN_TYPE = "GAN" if not args.AUX_CLASSIFIER else "ACGAN"
-LOG_DIR = os.path.join("logs", GAN_TYPE)
-MODEL_DIR = os.path.join("models", GAN_TYPE)
-SAMPLE_DIR = os.path.join("samples", GAN_TYPE)
+LOG_DIR = os.path.join("logs", args.GAN_TYPE)
+MODEL_DIR = os.path.join("models", args.GAN_TYPE)
+SAMPLE_DIR = os.path.join("samples", args.GAN_TYPE)
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
@@ -34,9 +34,9 @@ os.makedirs(SAMPLE_DIR, exist_ok=True)
 
 cudnn.benchmark = True
 if args.USE_CUDA:
-    device = torch.device('cuda')
+    device = torch.device("cuda")
 else:
-    device = torch.device('cpu')
+    device = torch.device("cpu")
 
 random.seed(args.SEED)
 torch.manual_seed(args.SEED)
@@ -44,12 +44,12 @@ if args.USE_CUDA:
     torch.cuda.manual_seed_all(args.SEED)
 
 
-generator = Generator(args.AUX_CLASSIFIER, args.ZDIM, args.NUM_CLASSES)
+generator = Generator(args.GAN_TYPE, args.ZDIM, args.NUM_CLASSES)
 generator.apply(weights_init)
 generator.to(device)
 print(generator)
 
-discriminator = Discriminator(args.AUX_CLASSIFIER)
+discriminator = Discriminator(args.GAN_TYPE, args.NUM_CLASSES)
 discriminator.apply(weights_init)
 discriminator.to(device)
 print(discriminator)
@@ -58,7 +58,7 @@ criterionLabel = nn.BCELoss()
 criterionClass = nn.CrossEntropyLoss()
 
 fixedNoise = torch.FloatTensor(args.BATCH_SIZE, args.ZDIM, 1, 1).normal_(0, 1)
-if args.AUX_CLASSIFIER:
+if args.GAN_TYPE in ["CGAN", "ACGAN"]:
     fixedClass = F.one_hot(torch.LongTensor([i % args.NUM_CLASSES for i in range(args.BATCH_SIZE)]), num_classes=args.NUM_CLASSES)
     fixedConstraint = fixedClass.unsqueeze(-1).unsqueeze(-1)
     fixed_z = torch.cat((fixedNoise, fixedConstraint), 1)
@@ -71,8 +71,10 @@ fixed_z.to(device)
 optimizerD = Adam(discriminator.parameters(), lr=args.LR, betas=(0.5, 0.999))
 optimizerG = Adam(generator.parameters(), lr=args.LR, betas=(0.5, 0.999))
 
-
-trainDataset = MNIST("train")
+if args.AUGMENTED:
+    trainDataset = MNIST(augmented_train_transform(), "train")
+else:
+    trainDataset = MNIST(train_transform(), "train")
 trainLoader = DataLoader(trainDataset, batch_size=args.BATCH_SIZE, shuffle=args.SHUFFLE, num_workers=args.NUM_WORKERS)
 
 # testDataset = MNIST("test")
@@ -92,7 +94,6 @@ try:
             steps += 1
             
             realClass = realClass.type(torch.LongTensor)
-
             # Soft labels
             realLabel = torch.FloatTensor(args.BATCH_SIZE, 1).uniform_(0.7, 1.0).to(device)
             fakeLabel = torch.FloatTensor(args.BATCH_SIZE, 1).uniform_(0.0, 0.3).to(device)
@@ -103,30 +104,39 @@ try:
             #     if random.random() < FLIP:
             #         realLabelGT, fakeLabelGT = fakeLabelGT, realLabelGT
 
-
+            # Prepare a (batch_size * 1 * w * h) tensor indicates class for discriminator of CGAN
+            repeatRealClass = None
+            if args.GAN_TYPE == "CGAN":
+                repeatRealClass = F.one_hot(realClass, num_classes=args.NUM_CLASSES)
+                repeatRealClass = repeatRealClass.unsqueeze(-1).unsqueeze(-1)
+                repeatRealClass = repeatRealClass.repeat(1, 1, *realImage.size()[-2:])
+                repeatRealClass = repeatRealClass.type(torch.FloatTensor)
             ### Update Discriminator ### 
 
             # Train with real
             discriminator.zero_grad()
             realImage = realImage.to(device)
             
-            pred = discriminator(realImage)
-            if args.AUX_CLASSIFIER:
+            # if args.GAN_TYPE == "CGAN":
+            #     realImage = torch.cat((realImage, repeatRealClass), 1)
+            
+            pred = discriminator(realImage, repeatRealClass)
+            if args.GAN_TYPE == "ACGAN":
                 predLabel, predClass = pred
             else:
                 predLabel = pred
 
             lossRealLabelD = criterionLabel(predLabel, realLabel)
-            lossRealClassD = criterionClass(predClass, realClass) if args.AUX_CLASSIFIER else 0
+            lossRealClassD = criterionClass(predClass, realClass) if args.GAN_TYPE == "ACGAN" else 0
             lossRealD = lossRealLabelD + lossRealClassD
 
             accRealLabelD = ((realLabel > 0.5) == (predLabel > 0.5)).sum().item() / args.BATCH_SIZE
-            if args.AUX_CLASSIFIER:
+            if args.GAN_TYPE == "ACGAN":
                 accRealClassD = (realClass == torch.max(predClass, 1)[1]).sum().item() / args.BATCH_SIZE
 
             # Train with fake
             noise = torch.FloatTensor(args.BATCH_SIZE, args.ZDIM, 1, 1).normal_(0, 1)
-            if args.AUX_CLASSIFIER:
+            if args.GAN_TYPE in ["CGAN", "ACGAN"]:
                 constraint = F.one_hot(realClass, num_classes=args.NUM_CLASSES).unsqueeze(-1).unsqueeze(-1)
                 z = torch.cat((noise, constraint), 1)
             else:
@@ -134,18 +144,22 @@ try:
             z.to(device)
 
             fakeImage = generator(z)
-            pred = discriminator(fakeImage.detach())
-            if args.AUX_CLASSIFIER:
+
+            # if args.GAN_TYPE == "CGAN":
+            #     fakeImage = torch.cat((fakeImage, repeatRealClass), 1)
+
+            pred = discriminator(fakeImage.detach(), repeatRealClass)
+            if args.GAN_TYPE == "ACGAN":
                 predLabel, predClass = pred
             else:
                 predLabel = pred
 
             lossFakeLabelD = criterionLabel(predLabel, fakeLabel)
-            lossFakeClassD = criterionClass(predClass, realClass) if args.AUX_CLASSIFIER else 0
+            lossFakeClassD = criterionClass(predClass, realClass) if args.GAN_TYPE == "ACGAN" else 0
             lossFakeD = lossFakeLabelD + lossFakeClassD
             
             accFakeLabelD = ((fakeLabel > 0.5) == (predLabel > 0.5)).sum().item() / args.BATCH_SIZE
-            if args.AUX_CLASSIFIER:
+            if args.GAN_TYPE == "ACGAN":
                 accFakeClassD = (realClass == torch.max(predClass, 1)[1]).sum().item() / args.BATCH_SIZE
 
             lossD = (lossRealD + lossFakeD) / 2
@@ -157,18 +171,17 @@ try:
             ### Update Generator ### 
 
             generator.zero_grad()
-            pred = discriminator(fakeImage)
-            if args.AUX_CLASSIFIER:
+            pred = discriminator(fakeImage, repeatRealClass)
+            if args.GAN_TYPE == "ACGAN":
                 predLabel, predClass = pred
             else:
                 predLabel = pred
             
             lossLabelG = criterionLabel(predLabel, realLabel)
-            lossClassG = criterionClass(predClass, realClass) if args.AUX_CLASSIFIER else 0
+            lossClassG = criterionClass(predClass, realClass) if args.GAN_TYPE == "ACGAN" else 0
             lossG = lossLabelG + lossClassG
             
-            accLabelG = ((fakeLabel > 0.5) == (predLabel > 0.5)).sum().item() / args.BATCH_SIZE
-            if args.AUX_CLASSIFIER:
+            if args.GAN_TYPE == "ACGAN":
                 accClassG = (realClass == torch.max(predClass, 1)[1]).sum().item() / args.BATCH_SIZE
 
             lossG.backward()
@@ -187,19 +200,19 @@ try:
                 )
 
                 writer.add_scalars("Loss", {"lossG": lossG.item(), "lossRealD": lossRealD.item(), "lossFakeD": lossFakeD.item()}, steps)
-                writer.add_scalars("LabelAcc", {"accLabelG": accLabelG, "accRealLabelD": accRealLabelD, "accFakeLabelD": accFakeLabelD}, steps)
+                writer.add_scalars("LabelAcc", {"accRealLabelD": accRealLabelD, "accFakeLabelD": accFakeLabelD}, steps)
 
-                if args.AUX_CLASSIFIER:
+                if args.GAN_TYPE == "ACGAN":
                     writer.add_scalars("ClassAcc", {"accClassG": accClassG, "accRealClassD": accRealClassD, "accFakeClassD": accFakeClassD}, steps)
 
-                writer.add_image('FakeImage', vutils.make_grid(fakeImage.data, nrow=10, normalize=True), steps)
+                writer.add_image("FakeImage", vutils.make_grid(fakeImage.data, nrow=10, normalize=True), steps)
         
         # Save model
-        torch.save(generator.state_dict(), '{}/G_epoch_{:03d}.pth'.format(MODEL_DIR, epoch))
-        torch.save(discriminator.state_dict(), '{}/D_epoch_{:03d}.pth'.format(MODEL_DIR, epoch))
+        torch.save(generator.state_dict(), "{}/G_epoch_{:03d}.pth".format(MODEL_DIR, epoch))
+        torch.save(discriminator.state_dict(), "{}/D_epoch_{:03d}.pth".format(MODEL_DIR, epoch))
 
 except KeyboardInterrupt as ke:
-    print('Interrupted')
+    print("Interrupted")
 except:
     import traceback
     traceback.print_exc()

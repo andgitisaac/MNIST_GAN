@@ -4,31 +4,27 @@ import numpy as np
 
 import torch
 
-from utils.transforms import train_transform, test_transform
-
-CONFIGS = {
+FILENAMES = {
     "train": {
         "images": "train-images-idx3-ubyte",
-        "labels": "train-labels-idx1-ubyte",
-        "transform": train_transform()
+        "labels": "train-labels-idx1-ubyte"
     },
     "test": {
         "images": "t10k-images-idx3-ubyte",
-        "labels": "t10k-labels-idx1-ubyte",
-        "transform": test_transform()
+        "labels": "t10k-labels-idx1-ubyte"
     }
 }
 
 class MNIST(torch.utils.data.Dataset):
-    def __init__(self, phase="train"):
+    def __init__(self, transform, phase="train"):
         super(MNIST, self).__init__()
         
         if phase not in ["train", "test"]:
             raise ValueError("Phase must be 'train' or 'test'")
         
-        self.imageFilePath = os.path.join("data", CONFIGS[phase]["images"])
-        self.labelFilePath = os.path.join("data", CONFIGS[phase]["labels"])
-        self.transform = CONFIGS[phase]["transform"]
+        self.imageFilePath = os.path.join("data", FILENAMES[phase]["images"])
+        self.labelFilePath = os.path.join("data", FILENAMES[phase]["labels"])
+        self.transform = transform
         self.images = None
         self.labels = None
 

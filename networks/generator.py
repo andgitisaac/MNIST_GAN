@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Generator(nn.Module):
-    def __init__(self, AuxClassifier, zDim, numClasses=10):
+    def __init__(self, GANType, zDim, numClasses=10):
         super(Generator, self).__init__()
-        if AuxClassifier:
+        if GANType in ["CGAN", "ACGAN"]:
             zDim += numClasses
         self.conv1 = nn.ConvTranspose2d(zDim, 64, 7, 1, 0, bias=False)
         self.conv2 = nn.ConvTranspose2d(64, 32, 4, 2, 1, bias=False)

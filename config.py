@@ -2,7 +2,14 @@ import argparse
 
 def parse_train_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--aux", default=False, dest="AUX_CLASSIFIER", action="store_true")
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--GAN", action="store_const", const="GAN", dest="GAN_TYPE")
+    group.add_argument("--CGAN", action="store_const", const="CGAN", dest="GAN_TYPE")
+    group.add_argument("--ACGAN", action="store_const", const="ACGAN", dest="GAN_TYPE")
+
+    parser.add_argument("--AUG", default=False, dest="AUGMENTED", action="store_true")
+
     parser.add_argument("--cuda", default=False, dest="USE_CUDA", action="store_true")
     parser.add_argument("--workers", default=4, type=int, dest="NUM_WORKERS")
 
@@ -24,7 +31,12 @@ def parse_train_args():
 
 def parse_eval_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--aux", default=False, dest="AUX_CLASSIFIER", action="store_true")
+    
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--GAN", action="store_const", const="GAN", dest="GAN_TYPE")
+    group.add_argument("--CGAN", action="store_const", const="CGAN", dest="GAN_TYPE")
+    group.add_argument("--ACGAN", action="store_const", const="ACGAN", dest="GAN_TYPE")
+
     parser.add_argument("--cuda", default=False, dest="USE_CUDA", action="store_true")
 
     parser.add_argument("--seed", default=9487, type=int, dest="SEED")
