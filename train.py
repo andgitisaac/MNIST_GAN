@@ -64,7 +64,7 @@ if args.GAN_TYPE in ["CGAN", "ACGAN"]:
     fixed_z = torch.cat((fixedNoise, fixedConstraint), 1)
 else:
     fixed_z = fixedNoise
-fixed_z.to(device)
+fixed_z = fixed_z.to(device)
 
 # optimizerD = SGD(discriminator.parameters(), lr=LR, momentum=0.9)
 # optimizerG = SGD(generator.parameters(), lr=LR, momentum=0.9)
@@ -111,6 +111,7 @@ try:
                 repeatRealClass = repeatRealClass.unsqueeze(-1).unsqueeze(-1)
                 repeatRealClass = repeatRealClass.repeat(1, 1, *realImage.size()[-2:])
                 repeatRealClass = repeatRealClass.type(torch.FloatTensor)
+                repeatRealClass = repeatRealClass.to(device)
             ### Update Discriminator ### 
 
             # Train with real
@@ -126,6 +127,9 @@ try:
             else:
                 predLabel = pred
 
+            realClass = realClass.to(device)
+            realLabel = realLabel.to(device)
+
             lossRealLabelD = criterionLabel(predLabel, realLabel)
             lossRealClassD = criterionClass(predClass, realClass) if args.GAN_TYPE == "ACGAN" else 0
             lossRealD = lossRealLabelD + lossRealClassD
@@ -136,12 +140,13 @@ try:
 
             # Train with fake
             noise = torch.FloatTensor(args.BATCH_SIZE, args.ZDIM, 1, 1).normal_(0, 1)
+            noise = noise.to(device)
             if args.GAN_TYPE in ["CGAN", "ACGAN"]:
                 constraint = F.one_hot(realClass, num_classes=args.NUM_CLASSES).unsqueeze(-1).unsqueeze(-1)
                 z = torch.cat((noise, constraint), 1)
             else:
                 z = noise
-            z.to(device)
+            z = z.to(device)
 
             fakeImage = generator(z)
 
