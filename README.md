@@ -12,7 +12,7 @@
     sh download.sh
     ```
 
-## Get you hands dirty
+## Get your hands dirty
 - Train your GAN/CGAN/ACGAN network. By default, the logs, the intermediate results and the saved models are located in `logs/`, `samples/` and `models/`, respectively.
     ```bash
     sh train.sh
