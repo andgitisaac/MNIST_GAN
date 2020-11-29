@@ -21,9 +21,12 @@ from networks.discriminator import Discriminator
 from utils.helper import weights_init
 from utils.transforms import train_transform, augmented_train_transform
 
+
+# Load the training configurations
 args = parse_train_args()
 print(args)
 
+# Setup the output dirs
 LOG_DIR = os.path.join("logs", args.GAN_TYPE)
 MODEL_DIR = os.path.join("models", args.GAN_TYPE)
 SAMPLE_DIR = os.path.join("samples", args.GAN_TYPE)
@@ -32,6 +35,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(SAMPLE_DIR, exist_ok=True)
 
+# Setup CUDA
 cudnn.benchmark = True
 if args.USE_CUDA:
     device = torch.device("cuda")
@@ -44,19 +48,27 @@ if args.USE_CUDA:
     torch.cuda.manual_seed_all(args.SEED)
 
 
+# Initialize Generator
 generator = Generator(args.GAN_TYPE, args.ZDIM, args.NUM_CLASSES)
 generator.apply(weights_init)
 generator.to(device)
 print(generator)
 
+
+# Initialize Discriminator
 discriminator = Discriminator(args.GAN_TYPE, args.NUM_CLASSES)
 discriminator.apply(weights_init)
 discriminator.to(device)
 print(discriminator)
 
+# Initialize loss function and optimizer
 criterionLabel = nn.BCELoss()
 criterionClass = nn.CrossEntropyLoss()
 
+optimizerD = Adam(discriminator.parameters(), lr=args.LR, betas=(0.5, 0.999))
+optimizerG = Adam(generator.parameters(), lr=args.LR, betas=(0.5, 0.999))
+
+# Prepare the noise for evaluation during training phase
 fixedNoise = torch.FloatTensor(args.BATCH_SIZE, args.ZDIM, 1, 1).normal_(0, 1)
 if args.GAN_TYPE in ["CGAN", "ACGAN"]:
     fixedClass = F.one_hot(torch.LongTensor([i % args.NUM_CLASSES for i in range(args.BATCH_SIZE)]), num_classes=args.NUM_CLASSES)
@@ -66,11 +78,8 @@ else:
     fixed_z = fixedNoise
 fixed_z = fixed_z.to(device)
 
-# optimizerD = SGD(discriminator.parameters(), lr=LR, momentum=0.9)
-# optimizerG = SGD(generator.parameters(), lr=LR, momentum=0.9)
-optimizerD = Adam(discriminator.parameters(), lr=args.LR, betas=(0.5, 0.999))
-optimizerG = Adam(generator.parameters(), lr=args.LR, betas=(0.5, 0.999))
 
+# Prepare the data generator with proper data transformation
 if args.AUGMENTED:
     trainDataset = MNIST(augmented_train_transform(), "train")
 else:
@@ -111,25 +120,24 @@ try:
                 repeatRealClass = repeatRealClass.unsqueeze(-1).unsqueeze(-1)
                 repeatRealClass = repeatRealClass.repeat(1, 1, *realImage.size()[-2:])
                 repeatRealClass = repeatRealClass.type(torch.FloatTensor)
+
                 repeatRealClass = repeatRealClass.to(device)
+
             ### Update Discriminator ### 
 
             # Train with real
             discriminator.zero_grad()
-            realImage = realImage.to(device)
-            
-            # if args.GAN_TYPE == "CGAN":
-            #     realImage = torch.cat((realImage, repeatRealClass), 1)
+            realImage = realImage.to(device)            
             
             pred = discriminator(realImage, repeatRealClass)
             if args.GAN_TYPE == "ACGAN":
                 predLabel, predClass = pred
             else:
                 predLabel = pred
-
             realClass = realClass.to(device)
             realLabel = realLabel.to(device)
-
+            
+            # Compute loss of D with real inputs
             lossRealLabelD = criterionLabel(predLabel, realLabel)
             lossRealClassD = criterionClass(predClass, realClass) if args.GAN_TYPE == "ACGAN" else 0
             lossRealD = lossRealLabelD + lossRealClassD
@@ -159,6 +167,7 @@ try:
             else:
                 predLabel = pred
 
+            # Compute loss of D with fake inputs
             lossFakeLabelD = criterionLabel(predLabel, fakeLabel)
             lossFakeClassD = criterionClass(predClass, realClass) if args.GAN_TYPE == "ACGAN" else 0
             lossFakeD = lossFakeLabelD + lossFakeClassD
@@ -167,6 +176,7 @@ try:
             if args.GAN_TYPE == "ACGAN":
                 accFakeClassD = (realClass == torch.max(predClass, 1)[1]).sum().item() / args.BATCH_SIZE
 
+            # Optimize D
             lossD = (lossRealD + lossFakeD) / 2
             lossD.backward()
         
@@ -182,6 +192,7 @@ try:
             else:
                 predLabel = pred
             
+            # Compute loss of G
             lossLabelG = criterionLabel(predLabel, realLabel)
             lossClassG = criterionClass(predClass, realClass) if args.GAN_TYPE == "ACGAN" else 0
             lossG = lossLabelG + lossClassG
@@ -189,9 +200,12 @@ try:
             if args.GAN_TYPE == "ACGAN":
                 accClassG = (realClass == torch.max(predClass, 1)[1]).sum().item() / args.BATCH_SIZE
 
+            # Optimize G
             lossG.backward()
             optimizerG.step()
 
+
+            ### Evaluation Phase ###
             if steps != 0 and steps % args.LOG_STEP == 0:
                 # print("Epoch: {:03d}, Step: {:04d} => lossD: {:.4f}, lossG: {:.4f}"
                 #         .format(epoch, step, lossD.item(), lossG.item()))
@@ -212,7 +226,7 @@ try:
 
                 writer.add_image("FakeImage", vutils.make_grid(fakeImage.data, nrow=10, normalize=True), steps)
         
-        # Save model
+        ### Save model ###
         torch.save(generator.state_dict(), "{}/G_epoch_{:03d}.pth".format(MODEL_DIR, epoch))
         torch.save(discriminator.state_dict(), "{}/D_epoch_{:03d}.pth".format(MODEL_DIR, epoch))
 
