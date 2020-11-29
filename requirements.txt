@@ -56,10 +56,10 @@ pycparser=2.20=pyh9f0ad1d_2
 pyjwt=1.7.1=py_0
 pyopenssl=19.1.0=py_1
 pysocks=1.7.1=py37h2987424_2
-python=3.7.9=h26836e1_0
+# python=3.7.9=h26836e1_0
 python-dateutil=2.8.1=py_0
 python_abi=3.7=1_cp37m
-pytorch=1.7.0=py3.7_0
+# pytorch=1.7.0=py3.7_0
 pytz=2020.1=py_0
 readline=8.0=h1de35cc_0
 requests=2.25.0=pyhd3deb0d_0
@@ -71,8 +71,8 @@ sqlite=3.33.0=hffcf06c_0
 tensorboard=2.4.0=pyhd8ed1ab_0
 tensorboard-plugin-wit=1.7.0=pyh9f0ad1d_0
 tk=8.6.10=hb0a8c7a_0
-torchaudio=0.7.0=py37
-torchvision=0.8.1=py37_cpu
+# torchaudio=0.7.0=py37
+# torchvision=0.8.1=py37_cpu
 tqdm=4.51.0=pyhd3eb1b0_0
 typing-extensions=3.7.4.3=0
 typing_extensions=3.7.4.3=py_0
