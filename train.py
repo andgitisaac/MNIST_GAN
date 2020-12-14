@@ -4,6 +4,8 @@ import random
 import numpy as np
 from tqdm import tqdm
 
+import matplotlib.pyplot as plt
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -206,26 +208,29 @@ try:
 
 
             ### Evaluation Phase ###
-            if steps != 0 and steps % args.LOG_STEP == 0:
+            if steps == 0 or steps % args.LOG_STEP == 0:
                 # print("Epoch: {:03d}, Step: {:04d} => lossD: {:.4f}, lossG: {:.4f}"
                 #         .format(epoch, step, lossD.item(), lossG.item()))
 
                 with torch.no_grad():
                     fakeImage = generator(fixed_z)
                 vutils.save_image(fakeImage.data,
-                        "{}/samples_epoch_{:03d}.png".format(SAMPLE_DIR, epoch),
+                        "{}/samples_step_{:04d}.png".format(SAMPLE_DIR, steps),
                         nrow=10,
                         normalize=True
                 )
+                vutils.save_image(realImage.data, "{}/real_step_{:04d}.png".format(SAMPLE_DIR, steps), nrow=10, normalize=True)
 
-                writer.add_scalars("Loss", {"lossG": lossG.item(), "lossRealD": lossRealD.item(), "lossFakeD": lossFakeD.item()}, steps)
+                writer.add_scalars("Loss", {"lossG": lossG.item(), "lossRealD": lossRealD.item(), "lossFakeD": lossFakeD.item(), "lossD": lossFakeD.item()+lossRealD.item()}, steps)
                 writer.add_scalars("LabelAcc", {"accRealLabelD": accRealLabelD, "accFakeLabelD": accFakeLabelD}, steps)
 
                 if args.GAN_TYPE == "ACGAN":
                     writer.add_scalars("ClassAcc", {"accClassG": accClassG, "accRealClassD": accRealClassD, "accFakeClassD": accFakeClassD}, steps)
 
                 writer.add_image("FakeImage", vutils.make_grid(fakeImage.data, nrow=10, normalize=True), steps)
-        
+                #vutils.save_image(vutils.make_grid(fakeImage.data, nrow=10, normalize=True), 'figure/GAN/{0:3d}.png'.format(step))
+
+
         ### Save model ###
         torch.save(generator.state_dict(), "{}/G_epoch_{:03d}.pth".format(MODEL_DIR, epoch))
         torch.save(discriminator.state_dict(), "{}/D_epoch_{:03d}.pth".format(MODEL_DIR, epoch))
