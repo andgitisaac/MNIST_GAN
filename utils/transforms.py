@@ -11,6 +11,7 @@ def augmented_train_transform():
     # TODO: Data augmentation
     transform_list = [
         transforms.ToTensor(),
+        transforms.RandomAffine(20, shear=10),
         transforms.Normalize((0.1307,), (0.3081,))
     ]
     return transforms.Compose(transform_list)
