@@ -2,27 +2,23 @@ import os
 import random
 
 import numpy as np
-from tqdm import tqdm
-
-import matplotlib.pyplot as plt
-
 import torch
+import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
-import torchvision.utils as vutils
 import torchvision.datasets as dset
-from torch.optim import Adam, SGD
+import torchvision.utils as vutils
+from torch.optim import SGD, Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from config import parse_train_args
 from fuels.MNIST import MNIST
-from networks.generator import Generator
 from networks.discriminator import Discriminator
+from networks.generator import Generator
 from utils.helper import weights_init
-from utils.transforms import train_transform, augmented_train_transform
-
+from utils.transforms import augmented_train_transform, train_transform
 
 # Load the training configurations
 args = parse_train_args()
@@ -49,13 +45,11 @@ torch.manual_seed(args.SEED)
 if args.USE_CUDA:
     torch.cuda.manual_seed_all(args.SEED)
 
-
 # Initialize Generator
 generator = Generator(args.GAN_TYPE, args.ZDIM, args.NUM_CLASSES)
 generator.apply(weights_init)
 generator.to(device)
 print(generator)
-
 
 # Initialize Discriminator
 discriminator = Discriminator(args.GAN_TYPE, args.NUM_CLASSES)
@@ -66,7 +60,6 @@ print(discriminator)
 # Initialize loss function and optimizer
 criterionLabel = nn.BCELoss()
 criterionClass = nn.CrossEntropyLoss()
-
 optimizerD = Adam(discriminator.parameters(), lr=args.LR, betas=(0.5, 0.999))
 optimizerG = Adam(generator.parameters(), lr=args.LR, betas=(0.5, 0.999))
 
@@ -79,7 +72,6 @@ if args.GAN_TYPE in ["CGAN", "ACGAN"]:
 else:
     fixed_z = fixedNoise
 fixed_z = fixed_z.to(device)
-
 
 # Prepare the data generator with proper data transformation
 if args.AUGMENTED:
@@ -184,9 +176,7 @@ try:
         
             optimizerD.step()
             
-
             ### Update Generator ### 
-
             generator.zero_grad()
             pred = discriminator(fakeImage, repeatRealClass)
             if args.GAN_TYPE == "ACGAN":
@@ -206,7 +196,6 @@ try:
             lossG.backward()
             optimizerG.step()
 
-
             ### Evaluation Phase ###
             if steps == 0 or steps % args.LOG_STEP == 0:
                 # print("Epoch: {:03d}, Step: {:04d} => lossD: {:.4f}, lossG: {:.4f}"
@@ -219,7 +208,7 @@ try:
                         nrow=10,
                         normalize=True
                 )
-                vutils.save_image(realImage.data, "{}/real_step_{:04d}.png".format(SAMPLE_DIR, steps), nrow=10, normalize=True)
+                # vutils.save_image(realImage.data, "{}/real_step_{:04d}.png".format(SAMPLE_DIR, steps), nrow=10, normalize=True)
 
                 writer.add_scalars("Loss", {"lossG": lossG.item(), "lossRealD": lossRealD.item(), "lossFakeD": lossFakeD.item(), "lossD": lossFakeD.item()+lossRealD.item()}, steps)
                 writer.add_scalars("LabelAcc", {"accRealLabelD": accRealLabelD, "accFakeLabelD": accFakeLabelD}, steps)
@@ -228,8 +217,6 @@ try:
                     writer.add_scalars("ClassAcc", {"accClassG": accClassG, "accRealClassD": accRealClassD, "accFakeClassD": accFakeClassD}, steps)
 
                 writer.add_image("FakeImage", vutils.make_grid(fakeImage.data, nrow=10, normalize=True), steps)
-                #vutils.save_image(vutils.make_grid(fakeImage.data, nrow=10, normalize=True), 'figure/GAN/{0:3d}.png'.format(step))
-
 
         ### Save model ###
         torch.save(generator.state_dict(), "{}/G_epoch_{:03d}.pth".format(MODEL_DIR, epoch))
