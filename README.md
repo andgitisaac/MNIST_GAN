@@ -2,6 +2,8 @@
 
 This is the repository for the final project of EE 562: Artificial Intelligence for Engineers in Autumn 2020.
 
+## DEMO
+
 ![example](https://github.com/andgitisaac/MNIST_GAN/blob/master/samples/output_ACGAN.gif)
 
 ## Requirements
