@@ -7,7 +7,7 @@
     Pytorch >= 1.6.0
     ```
 
-- Install the required packages through conda:
+- Install the other required packages through conda:
     ```bash
     conda create --name <env> --file requirements.txt
     ```
