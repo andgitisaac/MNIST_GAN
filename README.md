@@ -1,4 +1,4 @@
-# UW ECE 562 (Au 2020) - MNIST GAN/ACGAN 
+# UW ECE 562 (Au 2020) - Using GAN to Generate Handwritten Digits
 
 ## Requirements
 
@@ -28,3 +28,8 @@
     ```bash
     sh eval.sh
     ```
+
+## Teammates
+
+- Hwai-Jin (Isaac) Peng
+- Cheng-Yen (Chris) Yang
