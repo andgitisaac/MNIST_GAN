@@ -1,6 +1,12 @@
 # UW ECE 562 (Au 2020) - MNIST GAN/ACGAN 
 
 ## Requirements
+
+- Install Pytorch base on the system and GPU availability on your machine:
+    ```
+    Pytorch >= 1.6.0
+    ```
+
 - Install the required packages through conda:
     ```bash
     conda create --name <env> --file requirements.txt
