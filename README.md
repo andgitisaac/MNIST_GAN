@@ -1,4 +1,6 @@
-# UW ECE 562 (Au 2020) - Using GAN to Generate Handwritten Digits
+# UW EE 562 (Au 2020) - Using GAN to Generate Handwritten Digits
+
+This is the repository for the final project of EE 562: Artificial Intelligence for Engineers in Autumn 2020.
 
 ## Requirements
 
