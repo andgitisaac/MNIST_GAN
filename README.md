@@ -1,6 +1,6 @@
 # UW EE 562 (Autumn 2020) - Using GAN to Generate Handwritten Digits
 
-This is the repository for the final project of EE 562: Artificial Intelligence for Engineers in Autumn 2020.
+This is the repository for the final project of EE 562: Artificial Intelligence for Engineers in Autumn 2020. We implemented vanilla GAN, conditional GAN and auxiliary classifier GAN on the MNIST dataset to generate handwritten digits using Pytorch.
 
 ## DEMO
 
